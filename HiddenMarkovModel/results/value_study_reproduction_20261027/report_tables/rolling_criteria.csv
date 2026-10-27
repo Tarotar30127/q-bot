@@ -1,0 +1,5 @@
+criterion,observed,minimum,passes
+"Positive total-return evaluation years, including interest",1.0,0.6,True
+HMM beats ungated evaluation years,0.4,0.6,False
+"Positive total-return rolling offsets, including interest",0.97,0.7,True
+Completed rolling HMM positions,7,30,False

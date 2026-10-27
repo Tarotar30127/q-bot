@@ -1,0 +1,709 @@
+{
+  "benchmark_sessions": 2204,
+  "stock_count": 100,
+  "session_audit": {
+    "NVDA": {
+      "rows": 2204,
+      "first": "2018-01-02",
+      "last": "2026-10-08",
+      "missing_sessions": [],
+      "extra_sessions": []
+    },
+    "AAPL": {
+      "rows": 2204,
+      "first": "2018-01-02",
+      "last": "2026-10-08",
+      "missing_sessions": [],
+      "extra_sessions": []
+    },
+    "MSFT": {
+      "rows": 2204,
+      "first": "2018-01-02",
+      "last": "2026-10-08",
+      "missing_sessions": [],
+      "extra_sessions": []
+    },
+    "AMZN": {
+      "rows": 2204,
+      "first": "2018-01-02",
+      "last": "2026-10-08",
+      "missing_sessions": [],
+      "extra_sessions": []
+    },
+    "BRK.B": {
+      "rows": 2204,
+      "first": "2018-01-02",
+      "last": "2026-10-08",
+      "missing_sessions": [],
+      "extra_sessions": []
+    },
+    "LLY": {
+      "rows": 2204,
+      "first": "2018-01-02",
+      "last": "2026-10-08",
+      "missing_sessions": [],
+      "extra_sessions": []
+    },
+    "MU": {
+      "rows": 2204,
+      "first": "2018-01-02",
+      "last": "2026-10-08",
+      "missing_sessions": [],
+      "extra_sessions": []
+    },
+    "WMT": {
+      "rows": 2204,
+      "first": "2018-01-02",
+      "last": "2026-10-08",
+      "missing_sessions": [],
+      "extra_sessions": []
+    },
+    "JPM": {
+      "rows": 2204,
+      "first": "2018-01-02",
+      "last": "2026-10-08",
+      "missing_sessions": [],
+      "extra_sessions": []
+    },
+    "AMD": {
+      "rows": 2204,
+      "first": "2018-01-02",
+      "last": "2026-10-08",
+      "missing_sessions": [],
+      "extra_sessions": []
+    },
+    "XOM": {
+      "rows": 2204,
+      "first": "2018-01-02",
+      "last": "2026-10-08",
+      "missing_sessions": [],
+      "extra_sessions": []
+    },
+    "JNJ": {
+      "rows": 2204,
+      "first": "2018-01-02",
+      "last": "2026-10-08",
+      "missing_sessions": [],
+      "extra_sessions": []
+    },
+    "INTC": {
+      "rows": 2204,
+      "first": "2018-01-02",
+      "last": "2026-10-08",
+      "missing_sessions": [],
+      "extra_sessions": []
+    },
+    "COST": {
+      "rows": 2204,
+      "first": "2018-01-02",
+      "last": "2026-10-08",
+      "missing_sessions": [],
+      "extra_sessions": []
+    },
+    "CVX": {
+      "rows": 2204,
+      "first": "2018-01-02",
+      "last": "2026-10-08",
+      "missing_sessions": [],
+      "extra_sessions": []
+    },
+    "CSCO": {
+      "rows": 2204,
+      "first": "2018-01-02",
+      "last": "2026-10-08",
+      "missing_sessions": [],
+      "extra_sessions": []
+    },
+    "KO": {
+      "rows": 2204,
+      "first": "2018-01-02",
+      "last": "2026-10-08",
+      "missing_sessions": [],
+      "extra_sessions": []
+    },
+    "PG": {
+      "rows": 2204,
+      "first": "2018-01-02",
+      "last": "2026-10-08",
+      "missing_sessions": [],
+      "extra_sessions": []
+    },
+    "ORCL": {
+      "rows": 2204,
+      "first": "2018-01-02",
+      "last": "2026-10-08",
+      "missing_sessions": [],
+      "extra_sessions": []
+    },
+    "UNH": {
+      "rows": 2204,
+      "first": "2018-01-02",
+      "last": "2026-10-08",
+      "missing_sessions": [],
+      "extra_sessions": []
+    },
+    "MRK": {
+      "rows": 2204,
+      "first": "2018-01-02",
+      "last": "2026-10-08",
+      "missing_sessions": [],
+      "extra_sessions": []
+    },
+    "BAC": {
+      "rows": 2204,
+      "first": "2018-01-02",
+      "last": "2026-10-08",
+      "missing_sessions": [],
+      "extra_sessions": []
+    },
+    "HD": {
+      "rows": 2204,
+      "first": "2018-01-02",
+      "last": "2026-10-08",
+      "missing_sessions": [],
+      "extra_sessions": []
+    },
+    "CAT": {
+      "rows": 2204,
+      "first": "2018-01-02",
+      "last": "2026-10-08",
+      "missing_sessions": [],
+      "extra_sessions": []
+    },
+    "AMAT": {
+      "rows": 2204,
+      "first": "2018-01-02",
+      "last": "2026-10-08",
+      "missing_sessions": [],
+      "extra_sessions": []
+    },
+    "GE": {
+      "rows": 2204,
+      "first": "2018-01-02",
+      "last": "2026-10-08",
+      "missing_sessions": [],
+      "extra_sessions": []
+    },
+    "LRCX": {
+      "rows": 2204,
+      "first": "2018-01-02",
+      "last": "2026-10-08",
+      "missing_sessions": [],
+      "extra_sessions": []
+    },
+    "MS": {
+      "rows": 2204,
+      "first": "2018-01-02",
+      "last": "2026-10-08",
+      "missing_sessions": [],
+      "extra_sessions": []
+    },
+    "GS": {
+      "rows": 2204,
+      "first": "2018-01-02",
+      "last": "2026-10-08",
+      "missing_sessions": [],
+      "extra_sessions": []
+    },
+    "RTX": {
+      "rows": 2204,
+      "first": "2018-01-02",
+      "last": "2026-10-08",
+      "missing_sessions": [],
+      "extra_sessions": []
+    },
+    "TXN": {
+      "rows": 2204,
+      "first": "2018-01-02",
+      "last": "2026-10-08",
+      "missing_sessions": [],
+      "extra_sessions": []
+    },
+    "TMO": {
+      "rows": 2204,
+      "first": "2018-01-02",
+      "last": "2026-10-08",
+      "missing_sessions": [],
+      "extra_sessions": []
+    },
+    "WFC": {
+      "rows": 2204,
+      "first": "2018-01-02",
+      "last": "2026-10-08",
+      "missing_sessions": [],
+      "extra_sessions": []
+    },
+    "AMGN": {
+      "rows": 2204,
+      "first": "2018-01-02",
+      "last": "2026-10-08",
+      "missing_sessions": [],
+      "extra_sessions": []
+    },
+    "LIN": {
+      "rows": 2204,
+      "first": "2018-01-02",
+      "last": "2026-10-08",
+      "missing_sessions": [],
+      "extra_sessions": []
+    },
+    "IBM": {
+      "rows": 2204,
+      "first": "2018-01-02",
+      "last": "2026-10-08",
+      "missing_sessions": [],
+      "extra_sessions": []
+    },
+    "AXP": {
+      "rows": 2204,
+      "first": "2018-01-02",
+      "last": "2026-10-08",
+      "missing_sessions": [],
+      "extra_sessions": []
+    },
+    "C": {
+      "rows": 2204,
+      "first": "2018-01-02",
+      "last": "2026-10-08",
+      "missing_sessions": [],
+      "extra_sessions": []
+    },
+    "KLAC": {
+      "rows": 2204,
+      "first": "2018-01-02",
+      "last": "2026-10-08",
+      "missing_sessions": [],
+      "extra_sessions": []
+    },
+    "DIS": {
+      "rows": 2204,
+      "first": "2018-01-02",
+      "last": "2026-10-08",
+      "missing_sessions": [],
+      "extra_sessions": []
+    },
+    "GILD": {
+      "rows": 2204,
+      "first": "2018-01-02",
+      "last": "2026-10-08",
+      "missing_sessions": [],
+      "extra_sessions": []
+    },
+    "ADI": {
+      "rows": 2204,
+      "first": "2018-01-02",
+      "last": "2026-10-08",
+      "missing_sessions": [],
+      "extra_sessions": []
+    },
+    "PEP": {
+      "rows": 2204,
+      "first": "2018-01-02",
+      "last": "2026-10-08",
+      "missing_sessions": [],
+      "extra_sessions": []
+    },
+    "QCOM": {
+      "rows": 2204,
+      "first": "2018-01-02",
+      "last": "2026-10-08",
+      "missing_sessions": [],
+      "extra_sessions": []
+    },
+    "VZ": {
+      "rows": 2204,
+      "first": "2018-01-02",
+      "last": "2026-10-08",
+      "missing_sessions": [],
+      "extra_sessions": []
+    },
+    "APH": {
+      "rows": 2204,
+      "first": "2018-01-02",
+      "last": "2026-10-08",
+      "missing_sessions": [],
+      "extra_sessions": []
+    },
+    "MCD": {
+      "rows": 2204,
+      "first": "2018-01-02",
+      "last": "2026-10-08",
+      "missing_sessions": [],
+      "extra_sessions": []
+    },
+    "ABT": {
+      "rows": 2204,
+      "first": "2018-01-02",
+      "last": "2026-10-08",
+      "missing_sessions": [],
+      "extra_sessions": []
+    },
+    "BLK": {
+      "rows": 2204,
+      "first": "2018-01-02",
+      "last": "2026-10-08",
+      "missing_sessions": [],
+      "extra_sessions": []
+    },
+    "UNP": {
+      "rows": 2204,
+      "first": "2018-01-02",
+      "last": "2026-10-08",
+      "missing_sessions": [],
+      "extra_sessions": []
+    },
+    "DE": {
+      "rows": 2204,
+      "first": "2018-01-02",
+      "last": "2026-10-08",
+      "missing_sessions": [],
+      "extra_sessions": []
+    },
+    "PFE": {
+      "rows": 2204,
+      "first": "2018-01-02",
+      "last": "2026-10-08",
+      "missing_sessions": [],
+      "extra_sessions": []
+    },
+    "WELL": {
+      "rows": 2204,
+      "first": "2018-01-02",
+      "last": "2026-10-08",
+      "missing_sessions": [],
+      "extra_sessions": []
+    },
+    "NEE": {
+      "rows": 2204,
+      "first": "2018-01-02",
+      "last": "2026-10-08",
+      "missing_sessions": [],
+      "extra_sessions": []
+    },
+    "DHR": {
+      "rows": 2204,
+      "first": "2018-01-02",
+      "last": "2026-10-08",
+      "missing_sessions": [],
+      "extra_sessions": []
+    },
+    "TJX": {
+      "rows": 2204,
+      "first": "2018-01-02",
+      "last": "2026-10-08",
+      "missing_sessions": [],
+      "extra_sessions": []
+    },
+    "SCHW": {
+      "rows": 2204,
+      "first": "2018-01-02",
+      "last": "2026-10-08",
+      "missing_sessions": [],
+      "extra_sessions": []
+    },
+    "T": {
+      "rows": 2204,
+      "first": "2018-01-02",
+      "last": "2026-10-08",
+      "missing_sessions": [],
+      "extra_sessions": []
+    },
+    "BA": {
+      "rows": 2204,
+      "first": "2018-01-02",
+      "last": "2026-10-08",
+      "missing_sessions": [],
+      "extra_sessions": []
+    },
+    "ETN": {
+      "rows": 2204,
+      "first": "2018-01-02",
+      "last": "2026-10-08",
+      "missing_sessions": [],
+      "extra_sessions": []
+    },
+    "CB": {
+      "rows": 2204,
+      "first": "2018-01-02",
+      "last": "2026-10-08",
+      "missing_sessions": [],
+      "extra_sessions": []
+    },
+    "VRTX": {
+      "rows": 2204,
+      "first": "2018-01-02",
+      "last": "2026-10-08",
+      "missing_sessions": [],
+      "extra_sessions": []
+    },
+    "LMT": {
+      "rows": 2204,
+      "first": "2018-01-02",
+      "last": "2026-10-08",
+      "missing_sessions": [],
+      "extra_sessions": []
+    },
+    "SPGI": {
+      "rows": 2204,
+      "first": "2018-01-02",
+      "last": "2026-10-08",
+      "missing_sessions": [],
+      "extra_sessions": []
+    },
+    "WDC": {
+      "rows": 2204,
+      "first": "2018-01-02",
+      "last": "2026-10-08",
+      "missing_sessions": [],
+      "extra_sessions": []
+    },
+    "PGR": {
+      "rows": 2204,
+      "first": "2018-01-02",
+      "last": "2026-10-08",
+      "missing_sessions": [],
+      "extra_sessions": []
+    },
+    "BMY": {
+      "rows": 2204,
+      "first": "2018-01-02",
+      "last": "2026-10-08",
+      "missing_sessions": [],
+      "extra_sessions": []
+    },
+    "MO": {
+      "rows": 2204,
+      "first": "2018-01-02",
+      "last": "2026-10-08",
+      "missing_sessions": [],
+      "extra_sessions": []
+    },
+    "COF": {
+      "rows": 2204,
+      "first": "2018-01-02",
+      "last": "2026-10-08",
+      "missing_sessions": [],
+      "extra_sessions": []
+    },
+    "MDT": {
+      "rows": 2204,
+      "first": "2018-01-02",
+      "last": "2026-10-08",
+      "missing_sessions": [],
+      "extra_sessions": []
+    },
+    "BKNG": {
+      "rows": 2204,
+      "first": "2018-01-02",
+      "last": "2026-10-08",
+      "missing_sessions": [],
+      "extra_sessions": []
+    },
+    "ADP": {
+      "rows": 2204,
+      "first": "2018-01-02",
+      "last": "2026-10-08",
+      "missing_sessions": [],
+      "extra_sessions": []
+    },
+    "CVS": {
+      "rows": 2204,
+      "first": "2018-01-02",
+      "last": "2026-10-08",
+      "missing_sessions": [],
+      "extra_sessions": []
+    },
+    "VLO": {
+      "rows": 2204,
+      "first": "2018-01-02",
+      "last": "2026-10-08",
+      "missing_sessions": [],
+      "extra_sessions": []
+    },
+    "PLD": {
+      "rows": 2204,
+      "first": "2018-01-02",
+      "last": "2026-10-08",
+      "missing_sessions": [],
+      "extra_sessions": []
+    },
+    "SYK": {
+      "rows": 2204,
+      "first": "2018-01-02",
+      "last": "2026-10-08",
+      "missing_sessions": [],
+      "extra_sessions": []
+    },
+    "NEM": {
+      "rows": 2204,
+      "first": "2018-01-02",
+      "last": "2026-10-08",
+      "missing_sessions": [],
+      "extra_sessions": []
+    },
+    "MCK": {
+      "rows": 2204,
+      "first": "2018-01-02",
+      "last": "2026-10-08",
+      "missing_sessions": [],
+      "extra_sessions": []
+    },
+    "SBUX": {
+      "rows": 2204,
+      "first": "2018-01-02",
+      "last": "2026-10-08",
+      "missing_sessions": [],
+      "extra_sessions": []
+    },
+    "LOW": {
+      "rows": 2204,
+      "first": "2018-01-02",
+      "last": "2026-10-08",
+      "missing_sessions": [],
+      "extra_sessions": []
+    },
+    "PH": {
+      "rows": 2204,
+      "first": "2018-01-02",
+      "last": "2026-10-08",
+      "missing_sessions": [],
+      "extra_sessions": []
+    },
+    "GLW": {
+      "rows": 2204,
+      "first": "2018-01-02",
+      "last": "2026-10-08",
+      "missing_sessions": [],
+      "extra_sessions": []
+    },
+    "SO": {
+      "rows": 2204,
+      "first": "2018-01-02",
+      "last": "2026-10-08",
+      "missing_sessions": [],
+      "extra_sessions": []
+    },
+    "ADBE": {
+      "rows": 2204,
+      "first": "2018-01-02",
+      "last": "2026-10-08",
+      "missing_sessions": [],
+      "extra_sessions": []
+    },
+    "MAR": {
+      "rows": 2204,
+      "first": "2018-01-02",
+      "last": "2026-10-08",
+      "missing_sessions": [],
+      "extra_sessions": []
+    },
+    "BK": {
+      "rows": 2204,
+      "first": "2018-01-02",
+      "last": "2026-10-08",
+      "missing_sessions": [],
+      "extra_sessions": []
+    },
+    "DUK": {
+      "rows": 2204,
+      "first": "2018-01-02",
+      "last": "2026-10-08",
+      "missing_sessions": [],
+      "extra_sessions": []
+    },
+    "CSX": {
+      "rows": 2204,
+      "first": "2018-01-02",
+      "last": "2026-10-08",
+      "missing_sessions": [],
+      "extra_sessions": []
+    },
+    "WM": {
+      "rows": 2204,
+      "first": "2018-01-02",
+      "last": "2026-10-08",
+      "missing_sessions": [],
+      "extra_sessions": []
+    },
+    "INTU": {
+      "rows": 2204,
+      "first": "2018-01-02",
+      "last": "2026-10-08",
+      "missing_sessions": [],
+      "extra_sessions": []
+    },
+    "MMC": {
+      "rows": 2204,
+      "first": "2018-01-02",
+      "last": "2026-10-08",
+      "missing_sessions": [],
+      "extra_sessions": []
+    },
+    "FCX": {
+      "rows": 2204,
+      "first": "2018-01-02",
+      "last": "2026-10-08",
+      "missing_sessions": [],
+      "extra_sessions": []
+    },
+    "GD": {
+      "rows": 2204,
+      "first": "2018-01-02",
+      "last": "2026-10-08",
+      "missing_sessions": [],
+      "extra_sessions": []
+    },
+    "USB": {
+      "rows": 2204,
+      "first": "2018-01-02",
+      "last": "2026-10-08",
+      "missing_sessions": [],
+      "extra_sessions": []
+    },
+    "MNST": {
+      "rows": 2204,
+      "first": "2018-01-02",
+      "last": "2026-10-08",
+      "missing_sessions": [],
+      "extra_sessions": []
+    },
+    "MMM": {
+      "rows": 2204,
+      "first": "2018-01-02",
+      "last": "2026-10-08",
+      "missing_sessions": [],
+      "extra_sessions": []
+    },
+    "PNC": {
+      "rows": 2204,
+      "first": "2018-01-02",
+      "last": "2026-10-08",
+      "missing_sessions": [],
+      "extra_sessions": []
+    },
+    "CTAS": {
+      "rows": 2204,
+      "first": "2018-01-02",
+      "last": "2026-10-08",
+      "missing_sessions": [],
+      "extra_sessions": []
+    },
+    "EMR": {
+      "rows": 2204,
+      "first": "2018-01-02",
+      "last": "2026-10-08",
+      "missing_sessions": [],
+      "extra_sessions": []
+    },
+    "JCI": {
+      "rows": 2204,
+      "first": "2018-01-02",
+      "last": "2026-10-08",
+      "missing_sessions": [],
+      "extra_sessions": []
+    }
+  },
+  "repair_marked_rows": {},
+  "ohlc_bounds_violations": {},
+  "close_to_close_moves_over_50pct": {}
+}

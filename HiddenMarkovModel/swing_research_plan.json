@@ -1,0 +1,35 @@
+{
+  "purpose": "Bounded attempt to improve the existing HMM expert selector through persistent positions and turnover-aware costs.",
+  "tickers": [
+    "NVDA",
+    "GOOG",
+    "INTC"
+  ],
+  "data_dir": "data",
+  "start": "2018-01-01",
+  "validation_start": "2023-01-03",
+  "reserved_start": "2026-01-02",
+  "end": "2026-10-08",
+  "rebalance_sessions_grid": [
+    1,
+    5,
+    20
+  ],
+  "trend_lookback_grid": [
+    0,
+    100
+  ],
+  "momentum_lookback": 20,
+  "momentum_threshold_bps": 50.0,
+  "mean_reversion_threshold_bps": 150.0,
+  "slippage_bps_per_side": 5.0,
+  "commission_bps_per_side": 0.0,
+  "short_borrow_bps_per_day": 0.5,
+  "confidence_z": 1.96,
+  "minimum_validation_coverage": 0.2,
+  "selection_rule": "Require positive validation net return and at least 20% ticker-interval coverage; rank eligible candidates by net return, then Sharpe, then lower turnover. Freeze winner before reserved-period scoring. No reserved-period retuning.",
+  "stop_rule": "Run these six designs once. If none qualifies, record the failure and move to a separately specified HMM strategy hypothesis. A negative reserved result remains a negative result.",
+  "period_caveat": "2018-2025 data were used in earlier research. 2026 data and cash-fallback reports were previously accessed; 2026 is reserved for selection within this attempt, not a pristine never-seen holdout.",
+  "benchmark_scope": "An equal-weight buy-and-hold benchmark on the same three stocks. Russell 3000 and the supplied expanded universe are deferred until a model passes the positive-trading research check.",
+  "output_dir": "output/swing_research_20261023"
+}
