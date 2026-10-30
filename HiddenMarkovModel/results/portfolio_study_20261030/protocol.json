@@ -1,0 +1,65 @@
+{
+  "plan": {
+    "study": "100-stock equal-initial-weight portfolio with separately calibrated slippage versions",
+    "declared_on": "2026-10-30",
+    "output_dir": "output/portfolio_study_20261030/results",
+    "data_dir": "output/portfolio_study_20261030/data",
+    "universe_file": "future_stock_universe.json",
+    "download_start": "2014-06-01",
+    "download_end_exclusive": "2026-10-31",
+    "training_start": "2015-01-01",
+    "validation_start": "2023-01-03",
+    "evaluation_start": "2026-01-02",
+    "end": "2026-10-08",
+    "benchmark_ticker": "IWV",
+    "rolling_evaluation_years": [
+      2022,
+      2023,
+      2024,
+      2025,
+      2026
+    ],
+    "slippage_versions": {
+      "zero_slippage": 0.0,
+      "half_cent_slippage": 0.005
+    },
+    "configuration": {
+      "rebalance_sessions": 20,
+      "momentum_lookback": 20,
+      "momentum_threshold_bps": 50.0,
+      "trend_lookback": 100,
+      "mean_reversion_threshold_bps": 150.0,
+      "commission_bps_per_side": 0.0,
+      "slippage_bps_per_side": 0.0,
+      "short_borrow_bps_per_calendar_day": 0.5,
+      "hmm_states": 2,
+      "hmm_min_probability": 0.55,
+      "confidence_z": 1.96,
+      "min_train_days": 30,
+      "min_train_rebalances": 3,
+      "initial_equity": 1000000.0,
+      "random_seed": 42
+    },
+    "training": "Refit HMM and momentum-only state policy separately per slippage version, with the same seed and inputs. Include that version's execution costs in policy eligibility. Calibration starts in cash with zero interest so imposed initial purchases cannot qualify a state. Do not tune on validation/evaluation outcomes.",
+    "initialization": "At each independent evaluation start, purchase equal dollar weights in all 100 stocks with fees funded from initial capital. Hold adjusted shares until session index 20; subsequently execute model targets every 20 sessions and allow cash. Fractional shares and adjusted-price dividend reinvestment approximation are retained.",
+    "continuous": "One book from 2023 through October 8, 2026; no cross-year resets. Standalone 2023-2025 and 2026 books and yearly expanding-training checks are labeled independent restarts, not compounded into the continuous book.",
+    "rolling": "Train from 2015 through Y-2, leave Y-1 as the validation gap, evaluate year Y. Each year/version refits independently and starts at one million dollars equally invested.",
+    "execution": "Per-side slippage equals absolute actual shares traded times the version's fixed dollars/share. Reconstruct nominal quoted opens from Yahoo split-adjusted, dividend-unadjusted OHLC by reversing subsequent split factors through retrieval. Model equity uses dividend/split-adjusted OHLC; no duplicate dividend payments. Pay terminal liquidation.",
+    "sharpe": "DGS10 annual percent converted to decimal, past-only forward filling and two-session publication lag. Prior-open annual yield accrues simple ACT/365 over the holding interval. Annualized Sharpe = sqrt(252) * mean(interval net return minus risk-free return) / sample standard deviation of interval excess returns. Fold initial entry costs into the first holding interval; undefined Sharpe is null.",
+    "cash": "Keep separate DGS3MO lagged ACT/365 accrual on unencumbered cash; do not replace cash income with the DGS10 Sharpe reference.",
+    "limitations": "Current selected 100-stock list has survivor and selection bias. Historical evaluation periods were already observed. Adjusted-price total returns and reconstructed quoted prices depend on vendor corporate-action accuracy; they are research approximations. Neither independent fitting nor lower execution costs guarantees a different selected policy or profitable results."
+  },
+  "created_at_utc": "2026-10-30T16:40:33.753919+00:00",
+  "created_before_training_and_evaluation": true,
+  "sources": {
+    "portfolio_study_plan.json": "eaf93d36f25815341d8ab6f1edb2fee39cf35116994ee39adad3b2ea189d0e58",
+    "run_portfolio_study.py": "7515a690ee0bea0eff72355b3059bfb006a5328ee65153082796a1af2ab7667b",
+    "SwingRegimeSelector.py": "f24f8c6cc3b8b4f61bd70a4d1cd689bbc54269bddab6f0c40622b528c1e3a6a5",
+    "DecisionValueStudy.py": "bd50277b66e3cb8d01474d8a995cf4c198d6db11182b8b31d0f9895ff82305c2",
+    "HyperplaneStock.py": "1b7f211bb01764a3c94ffbac5490d1267115462dbec1779d141b57afdeaead97",
+    "download_portfolio_study_data.py": "467727eb55d4ea07e05c6bf829718f04ce239067fd477648bb657e7e1cc3a05f",
+    "download_value_study_data.py": "73a5749a6f676775b5a52960c0283c026cec86cf96d56f0ef3a174bf3909b3c5"
+  },
+  "data_manifest_sha256": "589797c211aa22c0a8c0e29d7e259d8c3a17c508bad81f1f330b461cc1bb2931",
+  "python": "3.13.3 (tags/v3.13.3:6280bb5, Apr  8 2025, 14:47:33) [MSC v.1943 64 bit (AMD64)]"
+}

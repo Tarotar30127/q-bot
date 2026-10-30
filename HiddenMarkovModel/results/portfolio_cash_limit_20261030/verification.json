@@ -1,0 +1,15 @@
+{
+  "repository": "Tarotar30127/q-bot",
+  "baseline_commit": "940a085",
+  "implementation_source_commit": "storresmolina/HedgeFundProject@5ca98e9",
+  "study_reproduced_in_qbot": true,
+  "books_reconciled": 96,
+  "all_summary_results_match_upstream": true,
+  "maximum_attribution_residual_dollars": 1.7171259969472883e-09,
+  "source_snapshots_verified": 8,
+  "tests_passed": 98,
+  "chart_series": 3,
+  "raw_market_data_and_authentication_caches_committed": false,
+  "maximum_cash_weight_before_liquidation": 0.2000000000000008,
+  "minimum_stock_weight_before_liquidation": 0.7999999999999992
+}
