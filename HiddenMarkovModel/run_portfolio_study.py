@@ -169,7 +169,7 @@ def write_report(output: Path, plan: dict, records: list[dict], policies: dict, 
             continue
         sharpe = "n/a" if row["sharpe"] is None else f"{row['sharpe']:.3f}"
         lines.append(f"| ${row['slippage_dollars_per_share']:g}/share | {row['strategy']} | ${row['final_equity']:,.2f} | {percentage(row['net_cumulative_return'])} | {percentage(row['annualized_return'])} | {sharpe} | {percentage(row['max_drawdown'])} | ${row['transaction_cost']:,.2f} | {row['average_gross_exposure']:.2%} |")
-    lines += ["", "![Continuous equity comparison](equity_curves.svg)", "", "## Independently trained policies", ""]
+    lines += ["", "![Continuous equity comparison](equity_curves.svg)", "", "![Model slippage comparison](slippage_comparison.svg)", "", "## Independently trained policies", ""]
     for version, policy in policies.items():
         lines.append(f"- {version}: {json.dumps(policy, sort_keys=True)}")
     max_cash = plan["configuration"].get("max_cash_weight", 1.0)
@@ -204,6 +204,7 @@ def write_report(output: Path, plan: dict, records: list[dict], policies: dict, 
         "100-stock portfolio (buy and hold)": curves["zero_slippage"]["passive_stocks"],
     }
     equity_chart(pd.DataFrame(selected), output / "equity_curves.svg", plan["configuration"]["initial_equity"])
+    equity_chart(pd.DataFrame(selected).iloc[:, :2], output / "slippage_comparison.svg", plan["configuration"]["initial_equity"])
 
 
 def run(plan_path: Path, output_override: str | None = None):
