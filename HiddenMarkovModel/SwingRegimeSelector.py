@@ -3,8 +3,9 @@
 This research module leaves the original intraday pipeline unchanged. Signals
 known after the previous close are submitted for the next session's open. HMM
 parameters and state/expert assignments are fitted before validation and remain
-frozen. Each supplied date split starts in cash and liquidates at its last open,
-so no training or validation return uses a later split's prices.
+frozen. Each supplied date split starts in cash by default, optionally buys an
+initial equal-weight basket, and liquidates at its last open. No training or
+validation return uses a later split's prices.
 
 The simulator uses fixed shares between scheduled rebalances, adjusted open
 prices, explicit cash, traded-notional execution fees, calendar-day short borrow
@@ -38,6 +39,8 @@ class SwingConfig:
     mean_reversion_threshold_bps: float = 150.0
     commission_bps_per_side: float = 0.0
     slippage_bps_per_side: float = 5.0
+    slippage_dollars_per_share: float = 0.0
+    max_cash_weight: float = 1.0
     short_borrow_bps_per_calendar_day: float = 0.5
     hmm_states: int = 2
     hmm_min_probability: float = 0.55
@@ -66,6 +69,7 @@ class SwingConfig:
         for name in (
             "momentum_threshold_bps", "mean_reversion_threshold_bps",
             "commission_bps_per_side", "slippage_bps_per_side",
+            "slippage_dollars_per_share",
             "short_borrow_bps_per_calendar_day", "confidence_z",
         ):
             value = getattr(self, name)
@@ -73,8 +77,12 @@ class SwingConfig:
                 raise ValueError(f"{name} must be finite and non-negative.")
         if self.commission_bps_per_side + self.slippage_bps_per_side >= 1_000:
             raise ValueError("Combined per-side execution costs must be below 1,000 bps.")
+        if self.slippage_bps_per_side and self.slippage_dollars_per_share:
+            raise ValueError("Choose basis-point or dollar-per-share slippage, not both.")
         if not math.isfinite(self.initial_equity) or self.initial_equity <= 0:
             raise ValueError("initial_equity must be finite and positive.")
+        if not math.isfinite(self.max_cash_weight) or not 0 <= self.max_cash_weight <= 1:
+            raise ValueError("max_cash_weight must be finite and in [0, 1].")
 
     def to_dict(self) -> dict[str, object]:
         return asdict(self)
@@ -157,6 +165,7 @@ def build_expert_signals(
 def prepare_inputs(
     data: hs.MarketData, baseline_predictions: pd.DataFrame,
     validation_start: str | pd.Timestamp, config: SwingConfig,
+    *, training_start: str | pd.Timestamp | None = None,
 ) -> SwingInputs:
     """Fit on pre-validation features and forward-filter each completed session.
 
@@ -168,12 +177,24 @@ def prepare_inputs(
 
     mean_reversion, momentum = build_expert_signals(data, baseline_predictions, config)
     features = hs.build_regime_features(data).drop(columns="opening_gap")
+    if training_start is not None:
+        features = features.loc[features.index >= pd.Timestamp(training_start)]
     regimes = hs.fit_asof_hmm_regimes(
         features, training_end=pd.Timestamp(validation_start),
         n_states=config.hmm_states, random_seed=config.random_seed,
         include_probabilities=True,
     )
     return SwingInputs(mean_reversion=mean_reversion, momentum=momentum, regimes=regimes)
+
+
+def apply_cash_limit(weights: pd.DataFrame, max_cash_weight: float) -> pd.DataFrame:
+    """Fill the stock-allocation shortfall equally across the existing universe."""
+    if max_cash_weight == 1.0:
+        return weights
+    if weights.empty or (weights < 0).any().any():
+        raise ValueError("A cash limit requires nonempty long-only stock targets.")
+    shortfall = (1.0 - max_cash_weight - weights.sum(axis=1)).clip(lower=0.0)
+    return weights.add(shortfall / len(weights.columns), axis=0)
 
 
 def build_targets(
@@ -206,25 +227,25 @@ def build_targets(
         sizing = probability.where(confident, 0.0).fillna(0.0)
         signal = getattr(inputs, expert).reindex(index=dates, columns=columns).fillna(0.0)
         output += signal.mul(sizing, axis=0) / len(columns)
-    return output
+    return apply_cash_limit(output, config.max_cash_weight)
 
 
 def _post_cost_target_equity(
     equity_before: float, existing_values: np.ndarray,
-    weights: np.ndarray, cost_rate: float,
+    weights: np.ndarray, cost_rate: float | np.ndarray,
 ) -> float:
     """Solve E_after = E_before - fee * sum(abs(w * E_after - old_book))."""
 
-    if cost_rate <= EPSILON:
+    if np.all(np.asarray(cost_rate) <= EPSILON):
         return equity_before
     lower, upper = 0.0, equity_before
     # Gross target weight <= 1 and fee < .1 make this equation strictly monotone.
-    if equity_before - cost_rate * float(np.abs(existing_values).sum()) <= 0:
+    if equity_before - float((cost_rate * np.abs(existing_values)).sum()) <= 0:
         raise ValueError("Portfolio cannot afford liquidation; equity is exhausted.")
     for _ in range(50):
         middle = (lower + upper) / 2.0
-        residual = middle + cost_rate * float(
-            np.abs(weights * middle - existing_values).sum()
+        residual = middle + float(
+            (cost_rate * np.abs(weights * middle - existing_values)).sum()
         ) - equity_before
         if residual > 0:
             upper = middle
@@ -237,6 +258,9 @@ def simulate_portfolio(
     data: hs.MarketData, target_weights: pd.DataFrame,
     dates: Sequence[pd.Timestamp] | pd.DatetimeIndex, config: SwingConfig,
     *, rebalance_offset: int = 0, cash_annual_rates: pd.Series | None = None,
+    execution_prices: pd.DataFrame | None = None,
+    risk_free_annual_rates: pd.Series | None = None,
+    initial_equal_weight: bool = False,
 ) -> SimulationResult:
     """Execute a single split using fixed shares, cash, and complete accounting.
 
@@ -252,6 +276,13 @@ def simulate_portfolio(
     above a full gross-position collateral reserve earns interest; short-sale
     proceeds cannot manufacture yield. Defaults reproduce the zero-yield model.
     ``rebalance_offset`` shifts the first scheduled entry without dropping dates.
+    With initial_equal_weight, buy the basket at the first open and first apply
+    model targets one rebalance interval later. Dollar/share costs require actual
+    historical quoted opens, rather than split/dividend-adjusted price units.
+    Risk-free rates are separate from cash income; they only change Sharpe.
+    A cash cap fills target shortfalls equally. Between scheduled rebalances,
+    breaches trigger equal-dollar purchases at the next observed daily open.
+    The cap is checked at opens, not intraday, and excludes terminal liquidation.
     """
 
     dates = _dates(dates)
@@ -259,6 +290,8 @@ def simulate_portfolio(
         raise ValueError("rebalance_offset must be an integer.")
     if not 0 <= rebalance_offset < config.rebalance_sessions:
         raise ValueError("rebalance_offset must be within one rebalance interval.")
+    if initial_equal_weight and rebalance_offset:
+        raise ValueError("Equal-weight initialization requires rebalance_offset=0.")
     if not dates.isin(data.index).all():
         raise ValueError("Every simulation date must exist in market data.")
     locations = data.index.get_indexer(dates)
@@ -268,6 +301,16 @@ def simulate_portfolio(
     prices = data.open.reindex(index=dates, columns=tickers).to_numpy(dtype=float)
     if not np.isfinite(prices).all() or (prices <= 0).any():
         raise ValueError("Adjusted open prices must be complete, finite, and positive.")
+    if execution_prices is None:
+        if config.slippage_dollars_per_share:
+            raise ValueError("Dollar/share slippage requires actual execution_prices.")
+        quoted_prices = prices
+    else:
+        if execution_prices.index.has_duplicates or execution_prices.columns.has_duplicates:
+            raise ValueError("Execution prices must have unique dates and tickers.")
+        quoted_prices = execution_prices.reindex(index=dates, columns=tickers).to_numpy(dtype=float)
+        if not np.isfinite(quoted_prices).all() or (quoted_prices <= 0).any():
+            raise ValueError("Every date and ticker requires a positive actual execution price.")
     targets = target_weights.reindex(index=dates, columns=tickers)
     if targets.isna().any().any():
         raise ValueError("Every simulation date and ticker needs an explicit target weight.")
@@ -276,6 +319,8 @@ def simulate_portfolio(
         raise ValueError("Target weights must be finite.")
     if (np.abs(target_values).sum(axis=1) > 1.0 + 1e-10).any():
         raise ValueError("Target gross exposure must not exceed one.")
+    targets = apply_cash_limit(targets, config.max_cash_weight)
+    target_values = targets.to_numpy(dtype=float)
     if cash_annual_rates is None:
         cash_rates = np.zeros(len(dates), dtype=float)
     else:
@@ -284,9 +329,18 @@ def simulate_portfolio(
         cash_rates = pd.to_numeric(cash_annual_rates.reindex(dates), errors="coerce").to_numpy(dtype=float)
         if not np.isfinite(cash_rates).all() or (cash_rates <= -1.0).any():
             raise ValueError("Every simulation open needs a finite cash rate greater than -100%.")
-    cost_rate = (
+    risk_free_rates = np.zeros(len(dates), dtype=float)
+    if risk_free_annual_rates is not None:
+        if risk_free_annual_rates.index.has_duplicates:
+            raise ValueError("Risk-free rate dates must be unique.")
+        risk_free_rates = risk_free_annual_rates.reindex(dates).to_numpy(dtype=float)
+        if not np.isfinite(risk_free_rates).all() or (risk_free_rates <= -1).any():
+            raise ValueError("Every open needs a finite risk-free rate greater than -100%.")
+    cost_rates = (
         config.commission_bps_per_side + config.slippage_bps_per_side
-    ) / 10_000.0
+    ) / 10_000.0 + config.slippage_dollars_per_share / quoted_prices
+    if (cost_rates >= 0.1).any():
+        raise ValueError("Combined execution cost must be below 10% of each stock price.")
     shares = np.zeros(len(tickers), dtype=float)
     cash = float(config.initial_equity)
     previous_equity = float(config.initial_equity)
@@ -296,6 +350,7 @@ def simulate_portfolio(
     daily_rows: list[dict[str, object]] = []
     trade_rows: list[dict[str, object]] = []
     for position, (date, opening_prices) in enumerate(zip(dates, prices)):
+        cost_rate = cost_rates[position]
         existing_values = shares * opening_prices
         calendar_days = int((date - dates[position - 1]).days) if position else 0
         interestable_capital = max(0.0, min(cash, previous_equity - previous_gross_notional))
@@ -319,19 +374,33 @@ def simulate_portfolio(
         rebalance = (position >= rebalance_offset
                      and (position - rebalance_offset) % config.rebalance_sessions == 0
                      and not terminal)
+        cash_limit_topup = (not terminal and not rebalance
+                            and config.max_cash_weight < 1.0
+                            and cash / equity_before > config.max_cash_weight + 1e-10)
         transaction_cost = 0.0
         traded_notional = 0.0
         order_count = 0
-        if rebalance or terminal:
-            weights = np.zeros(len(tickers)) if terminal else target_values[position]
-            target_equity = _post_cost_target_equity(
-                equity_before, existing_values, weights, cost_rate
-            )
-            desired_shares = weights * target_equity / opening_prices
+        if rebalance or terminal or cash_limit_topup:
+            if cash_limit_topup:
+                minimum_stocks = 1.0 - config.max_cash_weight
+                # Pay top-up costs from cash while buying equal dollars, without trimming holdings.
+                addition = (minimum_stocks * equity_before - existing_values.sum()) / (
+                    1.0 + minimum_stocks * float(cost_rate.mean())
+                )
+                desired_shares = shares + addition / len(tickers) / opening_prices
+            else:
+                weights = np.zeros(len(tickers)) if terminal else target_values[position]
+                if initial_equal_weight and position == 0:
+                    weights = np.full(len(tickers), 1.0 / len(tickers))
+                target_equity = _post_cost_target_equity(
+                    equity_before, existing_values, weights, cost_rate
+                )
+                desired_shares = weights * target_equity / opening_prices
             change = desired_shares - shares
             traded_values = change * opening_prices
             traded_notional = float(np.abs(traded_values).sum())
-            transaction_cost = traded_notional * cost_rate
+            order_costs = np.abs(traded_values) * cost_rate
+            transaction_cost = float(order_costs.sum())
             cash -= float(traded_values.sum()) + transaction_cost
             for ticker_position, ticker in enumerate(tickers):
                 if abs(traded_values[ticker_position]) > 1e-8:
@@ -343,7 +412,9 @@ def simulate_portfolio(
                         "shares_traded": float(change[ticker_position]),
                         "execution_open": float(opening_prices[ticker_position]),
                         "traded_notional": float(abs(traded_values[ticker_position])),
-                        "transaction_cost": float(abs(traded_values[ticker_position]) * cost_rate),
+                        "transaction_cost": float(order_costs[ticker_position]),
+                        "quoted_open": float(quoted_prices[position, ticker_position]),
+                        "actual_shares_traded": float(traded_values[ticker_position] / quoted_prices[position, ticker_position]),
                         "terminal_liquidation": terminal,
                     })
             shares = desired_shares
@@ -351,6 +422,9 @@ def simulate_portfolio(
         equity_after = float(cash + values_after.sum())
         gross_notional = float(np.abs(values_after).sum())
         short_notional = float((-values_after).clip(min=0.0).sum())
+        if (config.max_cash_weight < 1.0 and not terminal
+                and cash / equity_after > config.max_cash_weight + 1e-8):
+            raise ValueError(f"Cash allocation exceeds its cap on {date.date()}.")
         net_return = equity_after / previous_equity - 1.0
         row: dict[str, object] = {
             "date": date, "equity": equity_after, "cash": float(cash),
@@ -373,6 +447,10 @@ def simulate_portfolio(
             "is_rebalance": rebalance, "terminal_liquidation": terminal,
             "trade_count": order_count,
             "calendar_days_borrowed": calendar_days,
+            "risk_free_annual_rate": float(risk_free_rates[position - 1]) if position else 0.0,
+            "risk_free_return": float(risk_free_rates[position - 1]) * calendar_days / 365.0 if position else 0.0,
+            "initial_equal_weight_entry": bool(initial_equal_weight and position == 0),
+            "is_cash_limit_topup": cash_limit_topup,
         }
         for ticker_position, ticker in enumerate(tickers):
             row[f"shares_{ticker}"] = float(shares[ticker_position])
@@ -386,6 +464,7 @@ def simulate_portfolio(
     trades = pd.DataFrame(trade_rows, columns=[
         "date", "ticker", "shares_before", "shares_after", "shares_traded",
         "execution_open", "traded_notional", "transaction_cost", "terminal_liquidation",
+        "quoted_open", "actual_shares_traded",
     ])
     holding = daily.iloc[:-1]
     active = holding["gross_exposure"].gt(EPSILON)
@@ -396,7 +475,15 @@ def simulate_portfolio(
     equity_path = np.r_[config.initial_equity, daily["equity"].to_numpy(dtype=float)]
     drawdown = equity_path / np.maximum.accumulate(equity_path) - 1.0
     net_returns = daily["net_return"].to_numpy(dtype=float)
+    if risk_free_annual_rates is not None:
+        # Entry is instantaneous: include its fee in the first actual holding interval.
+        net_returns = net_returns[1:].copy()
+        net_returns[0] = daily["equity"].iloc[1] / config.initial_equity - 1.0
+    excess_returns = net_returns.copy()
+    if risk_free_annual_rates is not None:
+        excess_returns -= daily["risk_free_return"].to_numpy(dtype=float)[1:]
     volatility = float(np.std(net_returns, ddof=1)) if len(net_returns) > 1 else 0.0
+    excess_volatility = float(np.std(excess_returns, ddof=1)) if len(excess_returns) > 1 else 0.0
     cumulative = float(daily["equity"].iloc[-1] / config.initial_equity - 1.0)
     calendar_span = max(1, int((dates[-1] - dates[0]).days))
     metrics: dict[str, object] = {
@@ -405,8 +492,9 @@ def simulate_portfolio(
         "net_cumulative_return": cumulative,
         "annualized_return": float((1.0 + cumulative) ** (365.25 / calendar_span) - 1.0),
         "annualized_volatility": volatility * math.sqrt(252.0),
-        "sharpe": float(np.mean(net_returns) / volatility * math.sqrt(252.0))
-        if volatility > EPSILON else None,
+        "sharpe": float(np.mean(excess_returns) / excess_volatility * math.sqrt(252.0))
+        if excess_volatility > EPSILON else None,
+        "sharpe_reference": "lagged_annual_treasury_yield_ACT365" if risk_free_annual_rates is not None else "zero",
         "max_drawdown": float(drawdown.min()),
         # Preserve the existing pipeline's symbol/session coverage definition.
         "coverage": float(ticker_active.to_numpy(dtype=float).mean()),
@@ -422,6 +510,8 @@ def simulate_portfolio(
         "transaction_cost": float(daily["transaction_cost"].sum()),
         "borrow_cost": float(daily["borrow_cost"].sum()),
         "cash_interest": float(daily["cash_interest"].sum()),
+        "cash_limit_topup_days": int(daily["is_cash_limit_topup"].sum()),
+        "maximum_cash_weight_before_liquidation": float(holding["cash_weight"].max()),
         "cash_interest_fraction_initial": float(daily["cash_interest"].sum() / config.initial_equity),
         "transaction_cost_fraction_initial": float(daily["transaction_cost"].sum() / config.initial_equity),
         "borrow_cost_fraction_initial": float(daily["borrow_cost"].sum() / config.initial_equity),
@@ -453,6 +543,7 @@ def hac_mean_standard_error(values: Sequence[float], lags: int) -> tuple[float, 
 def fit_policy_library(
     data: hs.MarketData, inputs: SwingInputs,
     train_dates: Sequence[pd.Timestamp] | pd.DatetimeIndex, config: SwingConfig,
+    *, execution_prices: pd.DataFrame | None = None,
 ) -> tuple[dict[int, str], list[dict[str, object]]]:
     """Select frozen state experts from real, gated training portfolio returns.
 
@@ -479,7 +570,7 @@ def fit_policy_library(
             candidate = {other: "cash" for other in range(config.hmm_states)}
             candidate[state] = expert
             targets = build_targets(inputs, candidate, config)
-            result = simulate_portfolio(data, targets, dates, config)
+            result = simulate_portfolio(data, targets, dates, config, execution_prices=execution_prices)
             mean, standard_error = hac_mean_standard_error(result.daily["net_return"], lags)
             bound = mean - config.confidence_z * standard_error
             eligible = (

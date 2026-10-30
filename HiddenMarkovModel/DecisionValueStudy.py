@@ -274,9 +274,10 @@ def _load_cash_rates(path: Path, dates: pd.DatetimeIndex) -> pd.Series:
 def _fit_library(
     data: hs.MarketData, inputs: swing.SwingInputs, train_dates: pd.DatetimeIndex,
     config: swing.SwingConfig, momentum_only: bool,
+    *, execution_prices: pd.DataFrame | None = None,
 ) -> tuple[dict[int, str], list[dict[str, Any]]]:
     if not momentum_only:
-        return swing.fit_policy_library(data, inputs, train_dates, config)
+        return swing.fit_policy_library(data, inputs, train_dates, config, execution_prices=execution_prices)
     policy = {state: "cash" for state in range(config.hmm_states)}
     diagnostics: list[dict[str, Any]] = []
     lags = max(config.rebalance_sessions, config.hac_lags or 5)
@@ -284,7 +285,7 @@ def _fit_library(
         candidate = dict(policy)
         candidate = {other: "momentum" if other == state else "cash" for other in policy}
         targets = swing.build_targets(inputs, candidate, config)
-        result = swing.simulate_portfolio(data, targets, train_dates, config)
+        result = swing.simulate_portfolio(data, targets, train_dates, config, execution_prices=execution_prices)
         mean, error = swing.hac_mean_standard_error(result.daily["net_return"], lags)
         bound = mean - config.confidence_z * error
         eligible = result.metrics["active_days"] >= config.min_train_days and result.metrics["active_rebalances"] >= config.min_train_rebalances
