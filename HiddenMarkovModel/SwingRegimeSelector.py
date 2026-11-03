@@ -22,7 +22,7 @@ from typing import Mapping, Sequence
 import numpy as np
 import pandas as pd
 
-import HyperplaneStock as hs
+import market_data as hs
 
 
 EPSILON = 1e-12

@@ -7,9 +7,10 @@ import numpy as np
 import pandas as pd
 import pytest
 
-import DecisionValueStudy as study
+import portfolio_utils as study
 import SwingRegimeSelector as swing
 import run_portfolio_study as portfolio
+import download_portfolio_study_data as downloader
 from download_portfolio_study_data import market_frames
 from test_swing_regime_selector import market_data, config, targets
 
@@ -216,21 +217,22 @@ def test_invalid_cash_caps_are_rejected(amount):
         config(max_cash_weight=amount)
 
 
-def test_cash_cap_waits_for_first_rebalance_then_tops_up_drift_after_costs():
+@pytest.mark.parametrize("cash_cap", [0.2, 0.1, 0.05])
+def test_cash_cap_waits_for_first_rebalance_then_tops_up_drift_after_costs(cash_cap):
     data = market_data({"AAA": [100] * 6 + [70, 90, 60, 65],
                         "BBB": [100] * 6 + [80, 100, 70, 75]})
     settings = config(initial_equity=1_000_000, rebalance_sessions=5,
-                      slippage_dollars_per_share=0.005, max_cash_weight=0.2)
+                      slippage_dollars_per_share=0.005, max_cash_weight=cash_cap)
     rates = pd.Series(0.04, index=data.index)
     result = swing.simulate_portfolio(data, targets(data, [0, 0]), data.index, settings,
                                        execution_prices=data.open, cash_annual_rates=rates,
                                        initial_equal_weight=True)
     assert result.daily["shares_AAA"].iloc[:5].nunique() == 1
     assert not result.daily["is_cash_limit_topup"].iloc[:6].any()
-    assert result.daily["cash_weight"].iloc[5] == pytest.approx(0.2)
+    assert result.daily["cash_weight"].iloc[5] == pytest.approx(cash_cap)
     assert result.daily["is_cash_limit_topup"].iloc[6]
-    assert result.daily["cash_weight"].iloc[:-1].max() <= 0.2 + 1e-9
-    assert result.daily["gross_exposure"].iloc[:-1].min() >= 0.8 - 1e-9
+    assert result.daily["cash_weight"].iloc[:-1].max() <= cash_cap + 1e-9
+    assert result.daily["gross_exposure"].iloc[:-1].min() >= 1 - cash_cap - 1e-9
     topup = result.trades.loc[result.trades.date.eq(data.index[6])]
     assert (topup.shares_traded > 0).all()
     assert topup.traded_notional.iloc[0] == pytest.approx(topup.traded_notional.iloc[1])
@@ -238,7 +240,7 @@ def test_cash_cap_waits_for_first_rebalance_then_tops_up_drift_after_costs():
                                result.trades.actual_shares_traded.abs() * 0.005)
     assert result.daily["cash_weight"].iloc[-1] == pytest.approx(1)
     assert result.metrics["cash_limit_topup_days"] >= 1
-    assert result.metrics["maximum_cash_weight_before_liquidation"] <= 0.2 + 1e-9
+    assert result.metrics["maximum_cash_weight_before_liquidation"] <= cash_cap + 1e-9
 
 
 def test_mandatory_stock_gains_cannot_qualify_an_inactive_trained_policy(tmp_path):
@@ -280,3 +282,42 @@ def test_cash_cap_control_keeps_cash_benchmark_and_full_passive_book_distinct(tm
     assert metrics["passive_stocks"]["average_gross_exposure"] == pytest.approx(1)
     assert metrics["hmm"]["final_equity"] == pytest.approx(metrics["equal_weight_floor"]["final_equity"])
     assert metrics["hmm"]["maximum_cash_weight_before_liquidation"] <= 0.2 + 1e-9
+
+
+@pytest.mark.parametrize("missing", [None, "stock_training_day", "benchmark_test_day"])
+def test_panel_audit_allows_late_benchmark_but_requires_training_and_test_sessions(tmp_path, monkeypatch, missing):
+    monkeypatch.setattr(downloader, "ROOT", tmp_path)
+    dates = pd.to_datetime(["1999-10-01", "2000-01-03", "2000-05-22", "2020-01-02", "2026-10-30"])
+    prices = pd.DataFrame({"Open": 100, "High": 101, "Low": 99, "Close": 100}, index=dates)
+    directory = tmp_path / "prices"
+    directory.mkdir()
+    prices.to_csv(directory / "AAA.csv", index_label="Date")
+    other = prices.drop(pd.Timestamp("2000-01-03")) if missing == "stock_training_day" else prices
+    other.to_csv(directory / "BBB.csv", index_label="Date")
+    benchmark = prices.loc["2000-05-22":]
+    if missing == "benchmark_test_day":
+        benchmark = benchmark.drop(pd.Timestamp("2020-01-02"))
+    benchmark.to_csv(directory / "IWV.csv", index_label="Date")
+    plan = dict(training_start="2000-01-01", validation_start="2020-01-02", end="2026-10-30",
+                rolling_evaluation_years=[], benchmark_ticker="IWV")
+    audit = downloader.audit_panel(tmp_path, ["AAA", "BBB", "IWV"], plan)
+    assert audit["status"] == ("complete" if missing is None else "incomplete")
+    if missing:
+        assert ("BBB" if missing == "stock_training_day" else "IWV") in audit["errors"]
+
+
+def test_evaluation_windows_support_2020_start_and_preserve_original_names():
+    dates = pd.bdate_range("1999-10-01", "2026-10-30")
+    original = dict(training_start="2015-01-01", validation_start="2023-01-03",
+                    evaluation_start="2026-01-02", end="2026-10-08", rolling_evaluation_years=[2022])
+    windows = portfolio.evaluation_windows(dates, original)
+    assert list(windows) == ["continuous_2023_2026", "standalone_2023_2025", "standalone_2026", "rolling_2022"]
+    extended = {**original, "training_start": "2000-01-01", "validation_start": "2020-01-02",
+                "end": "2026-10-30", "rolling_evaluation_years": []}
+    windows = portfolio.evaluation_windows(dates, extended)
+    assert list(windows) == ["continuous_2020_2026", "standalone_2020_2025", "standalone_2026"]
+    assert windows["continuous_2020_2026"][0] == pd.Timestamp("2020-01-02")
+    assert windows["continuous_2020_2026"][-1] == pd.Timestamp("2026-10-30")
+    assert windows["standalone_2020_2025"].max() < windows["standalone_2026"].min()
+    with pytest.raises(ValueError):
+        portfolio.evaluation_windows(dates, {**extended, "training_start": "2021-01-01"})

@@ -13,8 +13,8 @@ import sys
 import numpy as np
 import pandas as pd
 
-import DecisionValueStudy as study
-import HyperplaneStock as hs
+import portfolio_utils as study
+import market_data as hs
 import SwingRegimeSelector as swing
 
 ROOT = Path(__file__).resolve().parent
@@ -151,21 +151,38 @@ def equity_chart(curves: pd.DataFrame, path: Path, initial_equity: float) -> Non
     path.write_text("\n".join(parts), encoding="utf-8")
 
 
+def evaluation_windows(dates: pd.DatetimeIndex, plan: dict) -> dict:
+    start, split, end = (pd.Timestamp(plan[key]) for key in ("validation_start", "evaluation_start", "end"))
+    if not pd.Timestamp(plan["training_start"]) < start < split <= end:
+        raise ValueError("Require training_start < validation_start < evaluation_start <= end.")
+    windows = {
+        f"continuous_{start.year}_{end.year}": dates[(dates >= start) & (dates <= end)],
+        f"standalone_{start.year}_{split.year - 1}": dates[(dates >= start) & (dates < split)],
+        f"standalone_{split.year}": dates[(dates >= split) & (dates <= end)],
+    }
+    for year in plan["rolling_evaluation_years"]:
+        windows[f"rolling_{year}"] = dates[dates.year == year]
+    return windows
+
+
 def write_report(output: Path, plan: dict, records: list[dict], policies: dict, curves: dict):
     def percentage(value):
         return f"{value:+.2%}"
 
-    lines = ["# 100-stock portfolio: 2015 training and per-share slippage", "",
+    training_start = pd.Timestamp(plan["training_start"]).year
+    test_start, test_end = pd.Timestamp(plan["validation_start"]), pd.Timestamp(plan["end"])
+    continuous_period = f"continuous_{test_start.year}_{test_end.year}"
+    lines = [f"# 100-stock portfolio: {training_start} training and per-share slippage", "",
              "Each slippage version fits independently on the same inputs and seed. The primary model uses the existing 100-stock momentum-only HMM hypothesis.", "",
-             "Main training: 2015–2022. Warm-up prices begin June 2014. Evaluation history was previously observed and is research data.", "",
+             f"Main training: {training_start}–{test_start.year - 1}. Warm-up prices begin {plan['download_start']}. Evaluation history was previously observed and is research data.", "",
              "Every independent book starts with $1,000,000. All stock strategies buy equal dollar amounts at the first open; costs come from that budget. Shares remain fixed until the first model rebalance 20 trading sessions later. Subsequent model decisions may hold cash. The continuous book carries positions across year boundaries; standalone windows and yearly checks restart separately.", "",
              "Slippage is fixed at $0 or $0.005 per actual share, on each side, including liquidation. Commission remains zero. Adjusted-price total returns approximate dividend reinvestment without adding dividends again; quoted opens are reconstructed from Yahoo split history for share-based fees.", "",
              "Sharpe uses [DGS10](https://fred.stlouisfed.org/series/DGS10), lagged two stock sessions and accrued at the prior-open yield using elapsed calendar days / 365. It is sqrt(252) times the mean interval excess return divided by its sample standard deviation. Entry costs belong to the first holding interval. Idle cash separately earns the existing [DGS3MO](https://fred.stlouisfed.org/series/DGS3MO) approximation. The 10-year yield is a reference yield, not a realized bond total return.", "",
-             "## Continuous portfolio: 2023 through October 8, 2026", "",
+             f"## Continuous portfolio: {test_start.date()} through {test_end.date()}", "",
              "| Slippage | Strategy | Final equity | Net return | Annualized return | Sharpe | Max drawdown | Execution costs | Avg exposure |",
              "|---|---|---:|---:|---:|---:|---:|---:|---:|"]
     for row in records:
-        if row["period"] != "continuous_2023_2026":
+        if row["period"] != continuous_period:
             continue
         sharpe = "n/a" if row["sharpe"] is None else f"{row['sharpe']:.3f}"
         lines.append(f"| ${row['slippage_dollars_per_share']:g}/share | {row['strategy']} | ${row['final_equity']:,.2f} | {percentage(row['net_cumulative_return'])} | {percentage(row['annualized_return'])} | {sharpe} | {percentage(row['max_drawdown'])} | ${row['transaction_cost']:,.2f} | {row['average_gross_exposure']:.2%} |")
@@ -176,25 +193,25 @@ def write_report(output: Path, plan: dict, records: list[dict], policies: dict, 
     if max_cash < 1.0:
         lines += ["", f"Cash is capped at {max_cash:.0%} at each observed daily open, except terminal liquidation. After the initial 100% stock holding, target shortfalls are filled equally across all 100 stocks. Price declines or interest can trigger equal-dollar top-up purchases between scheduled rebalances; intraday breaches cannot be observed with daily data.", "",
                   "State policies labeled cash mean the equal-weight stock-floor fallback in this constrained study. A momentum policy must clear the conservative training bound on incremental daily returns above that fallback, with matching execution costs and zero calibration interest. Required stock exposure alone cannot qualify a model.", "",
-                  "The equal_weight_floor control follows the same first-month holding, scheduled rebalances, daily floor enforcement, cash interest, and costs, with no HMM or stock-selection signal. Positive model-minus-control returns may also reflect different stock exposure within the allowed 80–100% range; they do not isolate stock-selection skill."]
+                  f"The equal_weight_floor control follows the same first-month holding, scheduled rebalances, daily floor enforcement, cash interest, and costs, with no HMM or stock-selection signal. Positive model-minus-control returns may also reflect different stock exposure within the allowed {1 - max_cash:.0%}–100% range; they do not isolate stock-selection skill."]
     if len({json.dumps(p, sort_keys=True) for p in policies.values()}) == 1:
         lines += ["", "The separate training runs selected the same state policy. This is a valid result; no different policy was forced."]
     if max_cash == 1.0 and all(all(expert == "cash" for expert in policy.values()) for policy in policies.values()):
         first_rebalance = next(row["first_model_rebalance"] for row in records
-                               if row["period"] == "continuous_2023_2026" and row["strategy"] == "hmm")
+                               if row["period"] == continuous_period and row["strategy"] == "hmm")
         lines += ["", f"Both main HMM policies choose cash in every state. Each continuous model book therefore sells the imposed basket on {first_rebalance} and remains in cash. Its gains come from the initial holding period and subsequent modeled cash interest, not later HMM-selected stock trades."]
     lines += ["", "The initial basket is imposed, so its 100 completed positions cannot be interpreted as 100 model-selected entries. Training eligibility excludes that imposed purchase. See imposed_initial_holding_market_pnl and average_model_exposure_after_initial_holding in the machine tables.", "",
               "## Standalone windows and expanding-training checks", "",
               "| Period | Slippage | Strategy | Net return | Sharpe | Max drawdown |",
               "|---|---|---|---:|---:|---:|"]
     for row in records:
-        if row["period"] == "continuous_2023_2026" or row["strategy"] not in ("hmm", "passive_stocks"):
+        if row["period"] == continuous_period or row["strategy"] not in ("hmm", "passive_stocks"):
             continue
         sharpe = "n/a" if row["sharpe"] is None else f"{row['sharpe']:.3f}"
         lines.append(f"| {row['period']} | ${row['slippage_dollars_per_share']:g}/share | {row['strategy']} | {percentage(row['net_cumulative_return'])} | {sharpe} | {percentage(row['max_drawdown'])} |")
-    lines += ["", "Rolling year Y trains from 2015 through Y−2, leaves Y−1 as a validation gap, and evaluates Y. No configuration is selected using those evaluations. These independently restarted books are not compounded into the primary continuous result.", "",
+    lines += ["", plan["rolling"], "",
               "## Files and limitations", "",
-              "metrics.csv contains every strategy and window. Each version has policy locks, training diagnostics, regime probabilities, target weights, daily books, actual-share order costs, completed-position attribution, and per-stock passive returns. Original studies and the prospective paper registration are unchanged.", "",
+              "metrics.csv contains every strategy and window. Each version has policy locks, training diagnostics, regime probabilities, target weights, daily books, actual-share order costs, completed-position attribution, and per-stock passive returns. The two current comparison summaries are retained under results/; historical studies remain in Git history.", "",
               plan["limitations"], "",
               "IWV is an investable Russell 3000 ETF proxy, not the official index. The zero-slippage passive_stocks row represents the same 100-stock basket's adjusted open-to-open performance over the matching dates. Neither ETF fund fees nor dividends are deducted/added a second time.", ""]
     (output / "REPORT.md").write_text("\n".join(lines), encoding="utf-8")
@@ -233,8 +250,9 @@ def run(plan_path: Path, output_override: str | None = None):
         raise ValueError("This protocol requires the approved 100-stock universe.")
     data = hs.load_csv_market_data(tickers, directory / "prices", plan["download_start"], plan["end"])
     benchmark = hs.load_csv_market_data([plan["benchmark_ticker"]], directory / "prices", plan["download_start"], plan["end"])
-    if not data.index.equals(benchmark.index):
-        raise ValueError("Every stock must match the benchmark calendar without price filling.")
+    first_evaluation = min([pd.Timestamp(plan["validation_start"])] + [pd.Timestamp(year=y, month=1, day=1) for y in plan["rolling_evaluation_years"]])
+    if not data.index[data.index >= first_evaluation].equals(benchmark.index[benchmark.index >= first_evaluation]):
+        raise ValueError("Every scored stock session must match the benchmark calendar without price filling.")
     quoted_all = pd.concat({ticker: pd.read_csv(directory / "quoted" / f"{ticker}.csv", index_col="Date", parse_dates=True)["QuotedOpen"]
                             for ticker in [*tickers, plan["benchmark_ticker"]]}, axis=1)
     quoted = quoted_all[tickers]
@@ -242,8 +260,8 @@ def run(plan_path: Path, output_override: str | None = None):
     rate_dates = data.index[data.index >= plan["training_start"]]
     cash_rates = study._load_cash_rates(directory / "rates/DGS3MO.csv", rate_dates)
     risk_free_rates = study._load_cash_rates(directory / "rates/DGS10.csv", rate_dates)
-    sources = [plan_path, Path(__file__), ROOT / "SwingRegimeSelector.py", ROOT / "DecisionValueStudy.py",
-               ROOT / "HyperplaneStock.py", ROOT / "download_portfolio_study_data.py", ROOT / "download_value_study_data.py"]
+    sources = [plan_path, Path(__file__), ROOT / "SwingRegimeSelector.py", ROOT / "portfolio_utils.py",
+               ROOT / "market_data.py", ROOT / "download_portfolio_study_data.py"]
     if data_plan_path.resolve() != plan_path.resolve():
         sources.append(data_plan_path)
     study.save_json(output / "protocol.json", {"plan": plan, "created_at_utc": datetime.now(timezone.utc).isoformat(),
@@ -262,13 +280,7 @@ def run(plan_path: Path, output_override: str | None = None):
         fitted[version] = (config, *fit_version(data, quoted, plan, config, pd.Timestamp(plan["validation_start"]), output / version / "training"))
         policies[version] = fitted[version][-1]
     for version, (config, inputs, target, _) in fitted.items():
-        windows = {
-            "continuous_2023_2026": data.index[data.index >= plan["validation_start"]],
-            "standalone_2023_2025": data.index[(data.index >= plan["validation_start"]) & (data.index < plan["evaluation_start"])],
-            "standalone_2026": data.index[data.index >= plan["evaluation_start"]],
-        }
-        for year in plan["rolling_evaluation_years"]:
-            windows[f"rolling_{year}"] = data.index[(data.index.year == year)]
+        windows = evaluation_windows(data.index, plan)
         for period, dates in windows.items():
             active_inputs, active_targets = inputs, target
             if period.startswith("rolling_"):
@@ -281,7 +293,7 @@ def run(plan_path: Path, output_override: str | None = None):
             for strategy, values in metrics.items():
                 records.append({"version": version, "slippage_dollars_per_share": config.slippage_dollars_per_share,
                                 "period": period, "strategy": strategy, **values})
-            if period == "continuous_2023_2026":
+            if period.startswith("continuous_"):
                 curves[version] = curve
             print(json.dumps(study.clean_json({"version": version, "period": period,
                                               "hmm_return": metrics["hmm"]["net_cumulative_return"],
@@ -296,7 +308,7 @@ def run(plan_path: Path, output_override: str | None = None):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--plan", default="portfolio_study_plan.json")
+    parser.add_argument("--plan", default="portfolio_cash_limit_plan.json")
     parser.add_argument("--output-dir")
     args = parser.parse_args()
     run(ROOT / args.plan, args.output_dir)

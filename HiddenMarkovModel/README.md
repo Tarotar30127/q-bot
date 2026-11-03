@@ -1,24 +1,44 @@
-# Hidden Markov Model portfolio research
+# HMM portfolio backtests
 
-Run the commands below from `HiddenMarkovModel/`. This port brings the portfolio
-study from HedgeFundProject commit `5ca98e9` into q-bot's existing HMM module.
-The existing DMD scripts, Transformer notebook, legacy study configurations,
-data directory, and earlier research results retain their current structure.
+This folder contains the two current 100-stock portfolio studies. Each compares
+80/20, 90/10, and 95/5 stock/cash floors at zero and $0.005/share execution
+slippage. Controls are ungated momentum, the matched mechanical stock floor,
+passive ownership of the same stocks, IWV, and cash.
+
+| Testing window | Training observations | Active plans |
+|---|---|---|
+| January 3, 2023–October 8, 2026 | 2015–2022 | `portfolio_cash_limit_plan.json`, `portfolio_cash_limit_10_plan.json`, `portfolio_cash_limit_5_plan.json` |
+| January 2, 2020–October 30, 2026 | 2000–2019 | `portfolio_train2000_cash20_plan.json`, `portfolio_train2000_cash10_plan.json`, `portfolio_train2000_cash5_plan.json` |
 
 ## Setup
 
-On Windows PowerShell:
+Run commands from `HiddenMarkovModel/` using Python 3.13:
 
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 ```
 
-## Run the new portfolio studies
+## Download inputs
 
 ```powershell
-.\.venv\Scripts\python.exe download_portfolio_study_data.py
-.\.venv\Scripts\python.exe run_portfolio_study.py
+.\.venv\Scripts\python.exe download_portfolio_study_data.py --plan portfolio_study_plan.json
+.\.venv\Scripts\python.exe download_portfolio_study_data.py --plan portfolio_train2000_cash20_plan.json
+```
+
+`portfolio_study_plan.json` is retained as the frozen data-plan identity for the
+2014-start cache; it is not one of the six active backtests. The other plans
+reuse these two verified caches. Raw prices, Treasury yields, authentication
+caches, and full run books belong in ignored `output/`, not Git.
+
+Downloads are checked for complete stock histories, OHLC validity, and matching
+benchmark sessions during evaluation. Existing file hashes must match their
+manifest. No missing prices or stocks are silently substituted. The 2000 study
+uses October 1999 warm-up prices; unavailable early trend signals remain inactive.
+
+## Run the backtests
+
+```powershell
 .\.venv\Scripts\python.exe run_portfolio_study.py --plan portfolio_cash_limit_plan.json
 ```
 
@@ -26,7 +46,7 @@ The downloader freezes a separate 100-stock-plus-IWV panel with June 2014 warm-u
 data, corporate actions, reconstructed historical quoted opens for per-share
 costs, Treasury yields, hashes, and a complete-calendar audit. Existing `data/`
 files are preserved. Each version fits independently from 2015 through 2022:
-zero slippage versus \$0.005 per actual share per execution. Both start each book
+zero slippage versus $0.005 per actual share per execution. Both start each book
 with $1 million equally invested in all 100 stocks and first apply model targets
 20 trading sessions later. Signals and model selection use prior information.
 
@@ -88,14 +108,22 @@ are reused only when their recorded hashes match.
 The earlier q-bot configurations continue to use the existing `data/` directory:
 
 ```powershell
-.\.venv\Scripts\python.exe run_swing_research.py --plan swing_research_plan.json
-.\.venv\Scripts\python.exe DecisionValueStudy.py --plan value_study_plan.json
+python plot_comparison.py --window 2023
+python plot_comparison.py --window 2020
 ```
 
-Those outputs may already be locked. Use a new `--output-dir` for a deliberate
-repeat. `write_value_study_report.py` retains q-bot's October 27 reproduction
-defaults. Existing configurations retain the old simulator behavior unless the
-new cash-cap, per-share execution, or Treasury-reference inputs are supplied.
+## Results
+
+- [2023–2026 comparison](results/cash_cap_comparison_20261102/REPORT.md)
+- [2020–2026 comparison](results/train2000_comparison_20261102/REPORT.md)
+- [2023–2026 yearly Sharpe mean and SD](results/cash_cap_comparison_20261102/SHARPE_STATISTICS.md)
+- [2020–2026 yearly Sharpe mean and SD](results/train2000_comparison_20261102/SHARPE_STATISTICS.md)
+
+Each result folder contains the report, primary graph, comparison and equity
+CSVs, yearly Sharpe observations, and verification. [Methodology](docs/METHODOLOGY.md)
+explains portfolio timing, costs, Treasury rates, and statistical interpretation.
+[Cleanup notes](docs/CLEANUP.md) identify what was removed and how to recover
+older studies from Git history.
 
 ## Verification
 
@@ -103,6 +131,14 @@ new cash-cap, per-share execution, or Treasury-reference inputs are supplied.
 .\.venv\Scripts\python.exe -m pytest -q tests
 ```
 
-The 98 tests cover existing HMM/regime logic plus independent calibration,
-initial holdings, stock-split share units, execution fees, Treasury timing and
-Sharpe, cash-cap top-ups, and qualification against the mechanical control.
+The 76 current-workflow tests pass. All six reruns match the earlier 396
+strategy/window/slippage result records exactly; see
+[regression verification](results/cleanup_verification.json).
+
+Tests cover causal HMM probabilities, fixed-share accounting, execution costs,
+Treasury timing, cap enforcement, policy calibration, and yearly Sharpe summaries.
+The cleanup also reruns all six studies on the same frozen inputs and compares
+all strategies/windows and yearly Sharpe results with their earlier values.
+Historical reuse and the selected stock universe retain survivorship and
+selection bias; these are retrospective research results, not independent
+prospective evidence. No broker orders are placed.

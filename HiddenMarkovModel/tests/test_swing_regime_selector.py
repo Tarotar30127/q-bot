@@ -6,9 +6,9 @@ import numpy as np
 import pandas as pd
 import pytest
 
-import HyperplaneStock as hs
+import market_data as hs
 import SwingRegimeSelector as swing
-from test_hyperplane_stock import synthetic_market_data
+from test_market_data import synthetic_market_data
 
 
 def market_data(prices, dates=None):
