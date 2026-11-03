@@ -1,6 +1,7 @@
 """Rebuild the two current cash-cap comparisons from completed portfolio studies."""
 import argparse
 import json
+from os.path import relpath
 from pathlib import Path
 
 import numpy as np
@@ -17,21 +18,30 @@ STUDIES = {
 }
 
 
-def build(window: str) -> pd.DataFrame:
+def build(window: str, *, run_dirs: dict[str, str | Path] | None = None,
+          output_dir: str | Path | None = None) -> pd.DataFrame:
     names, result_name = STUDIES[window]
     plans = [json.loads((ROOT / name).read_text(encoding="utf-8")) for name in names]
     base = plans[0]
     period = f"continuous_{pd.Timestamp(base['validation_start']).year}_{pd.Timestamp(base['end']).year}"
-    output = ROOT / "results" / result_name
+    labels = [f"{1 - plan['configuration']['max_cash_weight']:.0%}/{plan['configuration']['max_cash_weight']:.0%}".replace("%", "") for plan in plans]
+    if run_dirs is not None and set(run_dirs) != set(labels):
+        raise ValueError(f"Provide exactly these allocation run directories: {labels}")
+    runs = {label: ROOT / (run_dirs[label] if run_dirs is not None else plan["output_dir"])
+            for label, plan in zip(labels, plans)}
+    if len({folder.resolve() for folder in runs.values()}) != len(labels):
+        raise ValueError("Each allocation requires a distinct run directory.")
+    output = ROOT / output_dir if output_dir is not None else ROOT / "results" / result_name
+    if output.resolve() in {folder.resolve() for folder in runs.values()}:
+        raise ValueError("Comparison output must be separate from the input run directories.")
     output.mkdir(parents=True, exist_ok=True)
-    records, runs, protocols, policies = [], {}, {}, {}
+    records, protocols, policies = [], {}, {}
     books_checked, max_residual = 0, 0.0
-    base_metrics = pd.read_csv(ROOT / base["output_dir"] / "metrics.csv")
+    base_metrics = pd.read_csv(runs[labels[0]] / "metrics.csv")
     for plan in plans:
         cap = plan["configuration"]["max_cash_weight"]
         label = f"{1 - cap:.0%}/{cap:.0%}".replace("%", "")
-        folder = ROOT / plan["output_dir"]
-        runs[label] = folder
+        folder = runs[label]
         protocol = json.loads((folder / "protocol.json").read_text())
         assert protocol["plan"] == plan
         protocols[label] = protocol
@@ -110,15 +120,20 @@ def build(window: str) -> pd.DataFrame:
         for row in comparison.loc[comparison.version.eq(version)].to_dict("records"):
             lines.append(f"| {row['allocation']} | ${row['final_equity']:,.2f} | {row['net_cumulative_return']:+.2%} | {row['annualized_return']:+.2%} | {row['sharpe']:.3f} | {row['annual_sharpe_mean']:.3f} | {row['annual_sharpe_std']:.3f} | {row['max_drawdown']:.2%} | {row['average_gross_exposure']:.2%} |")
         lines.append("")
+    methodology_link = Path(relpath(ROOT / "docs/METHODOLOGY.md", output)).as_posix()
+    if run_dirs is not None or output_dir is not None:
+        rebuild_note = "Rebuild this custom report by rerunning the notebook with the same run directories. Full study books and source/policy locks remain in ignored output/."
+    else:
+        rebuild_note = "Rebuild this report after running its three plans: `python compare_portfolios.py --window " + window + "`. Optional PNG preview: `python plot_comparison.py --window " + window + "` using a Python installation with matplotlib. Full study books and source/policy locks remain in ignored output/."
     lines += ["## Trained policies", ""]
     for label, versions in policies.items():
         for version, policy in versions.items():
             matched = comparison.loc[comparison.allocation.eq(label) & comparison.version.eq(version), "matches_stock_floor"].iloc[0]
             lines.append(f"- {label}, {version}: {json.dumps(policy, sort_keys=True)}; matches the mechanical stock-floor control: {matched}.")
     lines += ["", "Matching the control means the HMM added no incremental value in that run. More compulsory stock exposure can increase both return and drawdown.", "",
-              "## Method and verification", "", "[Methodology](../../docs/METHODOLOGY.md) · [Yearly Sharpe details](SHARPE_STATISTICS.md) · [Comparison CSV](comparison.csv) · [Yearly observations](yearly_sharpe.csv) · [Verification](verification.json)", "",
+              "## Method and verification", "", f"[Methodology]({methodology_link}) · [Yearly Sharpe details](SHARPE_STATISTICS.md) · [Comparison CSV](comparison.csv) · [Yearly observations](yearly_sharpe.csv) · [Verification](verification.json)", "",
               f"The yearly Sharpe summaries use {int(comparison.annual_sharpe_count.iloc[0])} calendar-year observations, including partial 2026. Standard deviation is the sample SD across yearly Sharpes (ddof=1), not a standard error or confidence interval.", "",
-              "Rebuild this report after running its three plans: `python compare_portfolios.py --window " + window + "`. Optional PNG preview: `python plot_comparison.py --window " + window + "` using a Python installation with matplotlib. Full study books and source/policy locks remain in ignored output/.", "",
+              rebuild_note, "",
               base["limitations"], ""]
     (output / "REPORT.md").write_text("\n".join(lines), encoding="utf-8")
     print(f"Verified {books_checked} continuous books; report: {output / 'REPORT.md'}", flush=True)

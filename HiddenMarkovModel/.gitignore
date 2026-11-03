@@ -4,3 +4,4 @@ __pycache__/
 output/
 *.pyc
 data/
+.ipynb_checkpoints/

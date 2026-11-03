@@ -182,6 +182,41 @@ Optional PNG previews require matplotlib in the same environment:
 ..\.venv\Scripts\python.exe plot_comparison.py --window 2020
 ```
 
+## Run and visualize in Jupyter
+
+Open [current_experiments.ipynb](current_experiments.ipynb) to run the same
+experiments and generate allocation/benchmark equity curves, return differences,
+drawdowns, yearly Sharpe charts, and summary tables.
+
+Install the notebook tools from the **repo root** using the same environment:
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install -r .\HiddenMarkovModel\requirements-notebook.txt
+.\.venv\Scripts\python.exe -m jupyter lab .\HiddenMarkovModel\current_experiments.ipynb
+```
+
+In Jupyter, select the kernel backed by the root `.venv`; the first code cell
+prints its executable. If that kernel is not listed, register it from the repo
+root and select **q-bot (.venv)**:
+
+```powershell
+.\.venv\Scripts\python.exe -m ipykernel install --user --name q-bot --display-name "q-bot (.venv)"
+```
+
+Run the notebook from top to bottom. The configuration cell offers three modes:
+
+- `reference` (default): visualize the committed comparison snapshots immediately.
+- `existing`: rebuild verified comparisons from completed run folders. The
+  `EXISTING_RUN_DIRS` setting can point to your timestamped manual runs.
+- `fresh`: run all three allocations for each selected testing window in new
+  output folders. Set `DOWNLOAD_INPUTS = True` if inputs have not been downloaded.
+
+Choose one or both `WINDOWS` and the cost version to plot. Every comparison keeps
+both cost versions in its tables. Notebook exports go to the printed
+`SESSION_DIR` under ignored `output/`; reference reports stay intact. Clear cell
+outputs before committing the notebook. The backtest implementation and checks
+are shared with the command-line workflow.
+
 ## Common setup errors
 
 | Error | Fix |
@@ -212,7 +247,7 @@ older studies from Git history.
 ..\.venv\Scripts\python.exe -m pytest -q tests
 ```
 
-The 76 current-workflow tests pass. All six reruns match the earlier 396
+The 80 current-workflow tests pass. All six reruns match the earlier 396
 strategy/window/slippage result records exactly; see
 [regression verification](results/cleanup_verification.json).
 
