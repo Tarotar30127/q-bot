@@ -1,7 +1,7 @@
 # Hidden Markov Model portfolio research
 
 Run the commands below from `HiddenMarkovModel/`. This port brings the portfolio
-study from HedgeFundProject commit `5ca98e9` into q-bot's existing HMM module.
+study from HedgeFundProject commit `72d1058` into q-bot's existing HMM module.
 The existing DMD scripts, Transformer notebook, legacy study configurations,
 data directory, and earlier research results retain their current structure.
 
@@ -97,12 +97,75 @@ repeat. `write_value_study_report.py` retains q-bot's October 27 reproduction
 defaults. Existing configurations retain the old simulator behavior unless the
 new cash-cap, per-share execution, or Treasury-reference inputs are supplied.
 
+## Cash-cap sensitivity: 90/10 and 95/5
+
+The new comparison snapshots are copied from [HedgeFundProject commit 72d1058](https://github.com/storresmolina/HedgeFundProject/commit/72d10581bf9cf34a2b0ca5ff3398ba9b26e1ec30). Their original source/data hashes describe those upstream runs. The port passes all 110 tests inside q-bot; these snapshots are not additional independent backtest runs. See [port verification](results/session_port_20261102.json).
+
+`portfolio_cash_limit_10_plan.json` and `portfolio_cash_limit_5_plan.json` repeat
+the 80/20 study with 10% and 5% maximum cash allocations. Each cap and slippage
+version fits independently using the same frozen inputs and training period.
+Run either plan with `run_portfolio_study.py --plan <plan-file>`.
+
+The November 2 comparison covers January 3, 2023 through October 8, 2026. With
+$0.005/share execution slippage, cumulative returns are +100.89% (80/20),
++112.42% (90/10), and +118.37% (95/5), versus +105.93% for IWV and +161.32%
+for the passive 100-stock basket. Higher required stock exposure increases
+return and drawdown; every main fit still matches its mechanical stock-floor
+control. Read the [comparison report](results/cash_cap_comparison_20261102/REPORT.md)
+and [combined graph](results/cash_cap_comparison_20261102/comparison.png) for
+both slippage versions, risk metrics, verification, and reproduction commands.
+The original 80/20 results remain preserved.
+
+## Training from 2000, testing from 2020
+
+The three `portfolio_train2000_cash{20,10,5}_plan.json` plans train on
+January 3, 2000–December 31, 2019 and evaluate continuously from January 2,
+2020 through October 30, 2026. All 100 stocks have complete histories from
+October 1999; the separate frozen cache retains the previous studies unchanged.
+IWV covers every evaluation session but is not required during stock-model
+training. Missing early 100-session trend signals remain inactive.
+
+Download with `download_portfolio_study_data.py --plan portfolio_train2000_cash20_plan.json`,
+then run each plan with `run_portfolio_study.py --plan <plan-file>`.
+Each cash-cap/slippage version fits independently, then remains frozen.
+These fixed-training runs include standalone 2020–2025 and 2026 windows;
+there are no yearly refits.
+
+With $0.005/share slippage, cumulative returns are +180.10% (80/20), +206.60%
+(90/10), and +220.45% (95/5), versus +148.13% for IWV and +249.88% for the
+passive 100-stock basket. All main models still match their mechanical stock
+floors. The [comparison report](results/train2000_comparison_20261102/REPORT.md)
+and [graph](results/train2000_comparison_20261102/comparison.png) include both
+slippage versions, risk metrics, the data audit, and verification results.
+The full test suite passed 104 tests. Historical reuse and current-universe
+survivorship/selection bias remain.
+
+## Mean and standard deviation of yearly Sharpe
+
+Both comparison builders now add `annual_sharpe_mean`, `annual_sharpe_std`,
+and observation counts to `comparison.csv` and the comparison reports. The
+statistics summarize calendar-year Sharpes from each continuous book, keeping
+cross-year holdings, transaction costs, and the original Treasury reference.
+They are computed separately for every allocation, benchmark, and slippage
+version; yearly portfolios are not restarted or refitted.
+
+The [2020–2026 summary](results/train2000_comparison_20261102/SHARPE_STATISTICS.md)
+has seven yearly observations; the
+[2023–2026 summary](results/cash_cap_comparison_20261102/SHARPE_STATISTICS.md)
+has four. Each includes its partial 2026 year through the original end date
+(October 30 or October 8, respectively). Both folders include
+`sharpe_statistics.csv` and the underlying `yearly_sharpe.csv` observations.
+SD is the sample standard deviation across yearly Sharpes (`ddof=1`), not a
+standard error or confidence interval. The original full-period Sharpe is
+retained separately. Rebuild with the existing `build_comparison.py` commands;
+no backtest rerun or new market data is needed. The full suite passes 110 tests.
+
 ## Verification
 
 ```powershell
 .\.venv\Scripts\python.exe -m pytest -q tests
 ```
 
-The 98 tests cover existing HMM/regime logic plus independent calibration,
+The 110 tests cover existing HMM/regime logic plus independent calibration,
 initial holdings, stock-split share units, execution fees, Treasury timing and
 Sharpe, cash-cap top-ups, and qualification against the mechanical control.

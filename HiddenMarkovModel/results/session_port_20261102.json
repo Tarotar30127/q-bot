@@ -1,0 +1,26 @@
+{
+  "repository": "Tarotar30127/q-bot",
+  "base_commit": "21fd0dd0bad53824a5b9ef8e49db1a4b378849b6",
+  "implementation_source_commit": "storresmolina/HedgeFundProject@72d10581bf9cf34a2b0ca5ff3398ba9b26e1ec30",
+  "pending_slippage_chart_source_commit": "47e4d51",
+  "tests_passed_in_qbot": 110,
+  "new_result_snapshot_files_verified_byte_for_byte": 33,
+  "new_research_periods": [
+    "2023-01-03/2026-10-08",
+    "2020-01-02/2026-10-30"
+  ],
+  "cash_caps": [
+    0.2,
+    0.1,
+    0.05
+  ],
+  "slippage_dollars_per_share": [
+    0.0,
+    0.005
+  ],
+  "yearly_sharpe_mean_and_sample_standard_deviation_included": true,
+  "qbot_legacy_data_paths_and_study_defaults_preserved": true,
+  "dmd_and_transformer_files_unchanged": true,
+  "full_backtests_rerun_in_this_checkout": false,
+  "raw_market_data_and_authentication_caches_committed": false
+}

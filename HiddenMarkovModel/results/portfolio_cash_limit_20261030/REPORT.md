@@ -29,6 +29,8 @@ Sharpe uses [DGS10](https://fred.stlouisfed.org/series/DGS10), lagged two stock 
 
 ![Continuous equity comparison](equity_curves.svg)
 
+![Model slippage comparison](slippage_comparison.svg)
+
 ## Independently trained policies
 
 - zero_slippage: {"0": "cash", "1": "cash"}

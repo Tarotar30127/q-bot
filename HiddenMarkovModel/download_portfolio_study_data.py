@@ -112,14 +112,30 @@ def download(plan_path: Path) -> None:
         for source in (raw_path, path):
             manifest["files"][source.relative_to(directory).as_posix()] = sha256(source)
         save_json(manifest_path, manifest)
-    reference = pd.read_csv(directory / "prices" / f"{plan['benchmark_ticker']}.csv", index_col="Date", parse_dates=True)
+    audit = audit_panel(directory, tickers, plan)
+    save_json(directory / "audit.json", audit)
+    manifest["audit_sha256"] = sha256(directory / "audit.json")
+    save_json(manifest_path, manifest)
+    if audit["errors"]:
+        raise ValueError("Incomplete data panel; see audit.json. No symbols or sessions silently removed.")
+    print(json.dumps({"data": str(directory), "status": audit["status"], "sessions": audit["sessions"]}), flush=True)
+
+
+def audit_panel(directory: Path, tickers: list[str], plan: dict) -> dict:
+    """Stocks supply the training calendar; benchmarks must cover every scored date."""
+    reference = pd.read_csv(directory / "prices" / f"{tickers[0]}.csv", index_col="Date", parse_dates=True)
+    first_evaluation = min([pd.Timestamp(plan["validation_start"])] + [pd.Timestamp(year=y, month=1, day=1) for y in plan["rolling_evaluation_years"]])
     errors, bounds = {}, {}
+    if reference.index[0] > pd.Timestamp(plan["training_start"]) or reference.index[-1] < pd.Timestamp(plan["end"]):
+        errors["requested_bounds"] = "Stock history does not cover the requested training start and final evaluation date."
     for ticker in tickers:
         prices = pd.read_csv(directory / "prices" / f"{ticker}.csv", index_col="Date", parse_dates=True)
-        missing_dates = reference.index.difference(prices.index)
+        expected = reference.loc[first_evaluation:].index if ticker == plan["benchmark_ticker"] else reference.index
+        missing_dates = expected.difference(prices.index)
         invalid = (prices["High"] + 1e-8 < prices[["Open", "Close"]].max(axis=1)) | (prices["Low"] - 1e-8 > prices[["Open", "Close"]].min(axis=1))
-        if len(missing_dates) or invalid.any():
+        if prices.index.has_duplicates or len(missing_dates) or invalid.any():
             errors[ticker] = {"missing_dates": [str(d.date()) for d in missing_dates],
+                              "duplicate_dates": bool(prices.index.has_duplicates),
                               "invalid_ohlc_dates": [str(d.date()) for d in prices.index[invalid]]}
         bounds[ticker] = {"first": str(prices.index[0].date()), "last": str(prices.index[-1].date()), "rows": len(prices)}
     prior = ROOT / "output/value_study_20261023/data/IWV.csv"
@@ -128,14 +144,9 @@ def download(plan_path: Path) -> None:
         lost = prior_dates.difference(reference.index)
         if len(lost):
             errors["benchmark_calendar"] = [str(d.date()) for d in lost]
-    audit = {"status": "complete" if not errors else "incomplete", "stock_count": len(universe["stocks"]),
-             "sessions": len(reference), "bounds": bounds, "errors": errors}
-    save_json(directory / "audit.json", audit)
-    manifest["audit_sha256"] = sha256(directory / "audit.json")
-    save_json(manifest_path, manifest)
-    if errors:
-        raise ValueError("Incomplete data panel; see audit.json. No symbols or sessions silently removed.")
-    print(json.dumps({"data": str(directory), "status": audit["status"], "sessions": len(reference)}), flush=True)
+    return {"status": "complete" if not errors else "incomplete", "stock_count": len(tickers) - 1,
+            "sessions": len(reference), "benchmark_required_from": str(first_evaluation.date()),
+            "bounds": bounds, "errors": errors}
 
 
 if __name__ == "__main__":
