@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-import DecisionValueStudy as study
+import portfolio_utils as study
 import SwingRegimeSelector as swing
 import run_portfolio_study as portfolio
 import download_portfolio_study_data as downloader

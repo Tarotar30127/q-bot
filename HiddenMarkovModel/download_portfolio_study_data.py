@@ -12,10 +12,40 @@ import numpy as np
 import pandas as pd
 import yfinance as yf
 
-from DecisionValueStudy import save_json, sha256
-from download_value_study_data import fetch_group, OBSERVED_VENDOR_ALIASES, ALIAS_EVIDENCE
+from portfolio_utils import save_json, sha256
 
 ROOT = Path(__file__).resolve().parent
+
+
+OBSERVED_VENDOR_ALIASES = {"BK": "BNY", "MMC": "MRSH"}
+ALIAS_EVIDENCE = {
+    "BK": {"effective_date": "2026-05-21", "source": "https://www.bny.com/corporate/global/en/about-us/newsroom/press-release/bny-announces-planned-change-of-stock-ticker-symbol-to-bny-130465.html"},
+    "MMC": {"effective_date": "2026-01-14", "source": "https://www.marsh.com/en/corp/about/news/marsh-mclennan-to-change-nyse-symbol-to-mrsh.html"},
+}
+
+
+def fetch_group(
+    symbols: list[str], *, start: str, end: str,
+    auto_adjust: bool = True,
+) -> dict[str, pd.DataFrame]:
+    raw = yf.download(
+        tickers=symbols, start=start, end=end, interval="1d",
+        auto_adjust=auto_adjust, repair=True, actions=True, progress=False,
+        threads=False, group_by="ticker", multi_level_index=True, timeout=20,
+    )
+    result = {}
+    if raw is None or raw.empty:
+        return result
+    for symbol in symbols:
+        if isinstance(raw.columns, pd.MultiIndex):
+            if symbol not in raw.columns.get_level_values(0):
+                continue
+            block = raw[symbol].dropna(how="all")
+        else:
+            block = raw.dropna(how="all")
+        if not block.empty and all(f in block for f in ["Open", "High", "Low", "Close"]):
+            result[symbol] = block
+    return result
 
 
 def market_frames(raw: pd.DataFrame, end: str) -> tuple[pd.DataFrame, pd.Series]:
@@ -138,12 +168,6 @@ def audit_panel(directory: Path, tickers: list[str], plan: dict) -> dict:
                               "duplicate_dates": bool(prices.index.has_duplicates),
                               "invalid_ohlc_dates": [str(d.date()) for d in prices.index[invalid]]}
         bounds[ticker] = {"first": str(prices.index[0].date()), "last": str(prices.index[-1].date()), "rows": len(prices)}
-    prior = ROOT / "output/value_study_20261023/data/IWV.csv"
-    if prior.exists():
-        prior_dates = pd.DatetimeIndex(pd.read_csv(prior, parse_dates=["Date"])["Date"])
-        lost = prior_dates.difference(reference.index)
-        if len(lost):
-            errors["benchmark_calendar"] = [str(d.date()) for d in lost]
     return {"status": "complete" if not errors else "incomplete", "stock_count": len(tickers) - 1,
             "sessions": len(reference), "benchmark_required_from": str(first_evaluation.date()),
             "bounds": bounds, "errors": errors}

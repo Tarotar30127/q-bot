@@ -13,8 +13,8 @@ import sys
 import numpy as np
 import pandas as pd
 
-import DecisionValueStudy as study
-import HyperplaneStock as hs
+import portfolio_utils as study
+import market_data as hs
 import SwingRegimeSelector as swing
 
 ROOT = Path(__file__).resolve().parent
@@ -174,7 +174,7 @@ def write_report(output: Path, plan: dict, records: list[dict], policies: dict, 
     continuous_period = f"continuous_{test_start.year}_{test_end.year}"
     lines = [f"# 100-stock portfolio: {training_start} training and per-share slippage", "",
              "Each slippage version fits independently on the same inputs and seed. The primary model uses the existing 100-stock momentum-only HMM hypothesis.", "",
-             f"Main training: {plan['training_start']} through {(test_start - pd.Timedelta(days=1)).date()}. Warm-up prices begin {plan['download_start']}. Evaluation history was previously observed and is research data.", "",
+             f"Main training: {training_start}–{test_start.year - 1}. Warm-up prices begin {plan['download_start']}. Evaluation history was previously observed and is research data.", "",
              "Every independent book starts with $1,000,000. All stock strategies buy equal dollar amounts at the first open; costs come from that budget. Shares remain fixed until the first model rebalance 20 trading sessions later. Subsequent model decisions may hold cash. The continuous book carries positions across year boundaries; standalone windows and yearly checks restart separately.", "",
              "Slippage is fixed at $0 or $0.005 per actual share, on each side, including liquidation. Commission remains zero. Adjusted-price total returns approximate dividend reinvestment without adding dividends again; quoted opens are reconstructed from Yahoo split history for share-based fees.", "",
              "Sharpe uses [DGS10](https://fred.stlouisfed.org/series/DGS10), lagged two stock sessions and accrued at the prior-open yield using elapsed calendar days / 365. It is sqrt(252) times the mean interval excess return divided by its sample standard deviation. Entry costs belong to the first holding interval. Idle cash separately earns the existing [DGS3MO](https://fred.stlouisfed.org/series/DGS3MO) approximation. The 10-year yield is a reference yield, not a realized bond total return.", "",
@@ -211,7 +211,7 @@ def write_report(output: Path, plan: dict, records: list[dict], policies: dict, 
         lines.append(f"| {row['period']} | ${row['slippage_dollars_per_share']:g}/share | {row['strategy']} | {percentage(row['net_cumulative_return'])} | {sharpe} | {percentage(row['max_drawdown'])} |")
     lines += ["", plan["rolling"], "",
               "## Files and limitations", "",
-              "metrics.csv contains every strategy and window. Each version has policy locks, training diagnostics, regime probabilities, target weights, daily books, actual-share order costs, completed-position attribution, and per-stock passive returns. Original studies and the prospective paper registration are unchanged.", "",
+              "metrics.csv contains every strategy and window. Each version has policy locks, training diagnostics, regime probabilities, target weights, daily books, actual-share order costs, completed-position attribution, and per-stock passive returns. The two current comparison summaries are retained under results/; historical studies remain in Git history.", "",
               plan["limitations"], "",
               "IWV is an investable Russell 3000 ETF proxy, not the official index. The zero-slippage passive_stocks row represents the same 100-stock basket's adjusted open-to-open performance over the matching dates. Neither ETF fund fees nor dividends are deducted/added a second time.", ""]
     (output / "REPORT.md").write_text("\n".join(lines), encoding="utf-8")
@@ -260,8 +260,8 @@ def run(plan_path: Path, output_override: str | None = None):
     rate_dates = data.index[data.index >= plan["training_start"]]
     cash_rates = study._load_cash_rates(directory / "rates/DGS3MO.csv", rate_dates)
     risk_free_rates = study._load_cash_rates(directory / "rates/DGS10.csv", rate_dates)
-    sources = [plan_path, Path(__file__), ROOT / "SwingRegimeSelector.py", ROOT / "DecisionValueStudy.py",
-               ROOT / "HyperplaneStock.py", ROOT / "download_portfolio_study_data.py", ROOT / "download_value_study_data.py"]
+    sources = [plan_path, Path(__file__), ROOT / "SwingRegimeSelector.py", ROOT / "portfolio_utils.py",
+               ROOT / "market_data.py", ROOT / "download_portfolio_study_data.py"]
     if data_plan_path.resolve() != plan_path.resolve():
         sources.append(data_plan_path)
     study.save_json(output / "protocol.json", {"plan": plan, "created_at_utc": datetime.now(timezone.utc).isoformat(),
@@ -308,7 +308,7 @@ def run(plan_path: Path, output_override: str | None = None):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--plan", default="portfolio_study_plan.json")
+    parser.add_argument("--plan", default="portfolio_cash_limit_plan.json")
     parser.add_argument("--output-dir")
     args = parser.parse_args()
     run(ROOT / args.plan, args.output_dir)
