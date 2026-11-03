@@ -26,7 +26,7 @@ The downloader freezes a separate 100-stock-plus-IWV panel with June 2014 warm-u
 data, corporate actions, reconstructed historical quoted opens for per-share
 costs, Treasury yields, hashes, and a complete-calendar audit. Existing `data/`
 files are preserved. Each version fits independently from 2015 through 2022:
-zero slippage versus $0.005 per actual share per execution. Both start each book
+zero slippage versus \$0.005 per actual share per execution. Both start each book
 with $1 million equally invested in all 100 stocks and first apply model targets
 20 trading sessions later. Signals and model selection use prior information.
 
